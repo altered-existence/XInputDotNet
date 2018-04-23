@@ -16,7 +16,7 @@ namespace XInputDotNetPure
 
     public enum ButtonCode
     {
-        A,
+        A = 0,
         B,
         X,
         Y,
@@ -56,11 +56,6 @@ namespace XInputDotNetPure
             this.y = y;
         }
 
-        void Value(float x, float y)
-        {
-
-        }
-
         public float X {
             get {return x; }
         }
@@ -97,6 +92,12 @@ namespace XInputDotNetPure
         {
             currentStates = new GamePadState[controllersMax];
             lastStates = new GamePadState[controllersMax];
+
+            for (int i = 0; i < controllersMax; i++)
+            {
+                currentStates[i] = new GamePadState();
+                lastStates[i] = new GamePadState();
+            }
         }
 
         //Pole for all indexs
@@ -105,7 +106,7 @@ namespace XInputDotNetPure
             for (int i = 0; i < controllersMax; ++i)
             {
                 PlayerIndex testPlayerIndex = (PlayerIndex)i;
-                lastStates[i] = currentStates[i];
+                lastStates[i].Set(currentStates[i]);
                 currentStates[i].Update(testPlayerIndex);
             }
         }
@@ -114,7 +115,7 @@ namespace XInputDotNetPure
         public void Pole(PlayerIndex playerIndex)
         {
             int index = (int)playerIndex;
-            lastStates[index] = currentStates[index];
+            lastStates[index].Set(currentStates[index]);
             currentStates[index].Update(playerIndex);
         }
 
@@ -154,7 +155,7 @@ namespace XInputDotNetPure
         }
     }
 
-    internal struct GamePadState
+    public class GamePadState
     {
         Dictionary<ButtonCode, bool> _buttons;
         Dictionary<AxisCode, Axis> _axis;
@@ -213,7 +214,19 @@ namespace XInputDotNetPure
             Y = 0x8000
         }
 
-        internal GamePadState(bool isConnected, RawState rawState, GamePadDeadZone deadZone)
+        internal GamePadState()
+        {
+            _buttons = new Dictionary<ButtonCode, bool>();
+            _axis = new Dictionary<AxisCode, Axis>();
+            _triggers = new Dictionary<TriggerCode, float>();
+
+
+            RawState state;
+            uint result = Imports.XInputGamePadGetState((uint)PlayerIndex.One, out state);
+            Init(result == Utils.Success, state, GamePadDeadZone.IndependentAxes);
+        }
+
+        internal void Init(bool isConnected, RawState rawState, GamePadDeadZone deadZone)
         {
             this._isConnected = isConnected;
 
@@ -316,6 +329,16 @@ namespace XInputDotNetPure
             _triggers[TriggerCode.TriggerRight] = Utils.ApplyTriggerDeadZone(rawState.Gamepad.bRightTrigger, deadZone);
         }
 
+        public void Set(GamePadState other)
+        {
+            _isConnected = other._isConnected;
+            _packetNumber = other._packetNumber;
+
+            for(int i = 0; i < _buttons.Count; i++)
+            {
+                _buttons[(ButtonCode)i] = other._buttons[(ButtonCode)i];
+            }
+        }
         public bool GetButton(ButtonCode button)
         {
             return _buttons[button];
