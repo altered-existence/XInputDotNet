@@ -23,17 +23,17 @@ namespace XInputDotNetPure
             }
         }
 
-        public static GamePadThumbSticks.StickValue ApplyLeftStickDeadZone(short valueX, short valueY, GamePadDeadZone deadZoneMode)
+        public static Axis ApplyLeftStickDeadZone(short valueX, short valueY, GamePadDeadZone deadZoneMode)
         {
             return ApplyStickDeadZone(valueX, valueY, deadZoneMode, LeftStickDeadZone);
         }
 
-        public static GamePadThumbSticks.StickValue ApplyRightStickDeadZone(short valueX, short valueY, GamePadDeadZone deadZoneMode)
+        public static Axis ApplyRightStickDeadZone(short valueX, short valueY, GamePadDeadZone deadZoneMode)
         {
             return ApplyStickDeadZone(valueX, valueY, deadZoneMode, RightStickDeadZone);
         }
 
-        private static GamePadThumbSticks.StickValue ApplyStickDeadZone(short valueX, short valueY, GamePadDeadZone deadZoneMode, int deadZoneSize)
+        private static Axis ApplyStickDeadZone(short valueX, short valueY, GamePadDeadZone deadZoneMode, int deadZoneSize)
         {
             if (deadZoneMode == GamePadDeadZone.Circular)
             {
@@ -41,21 +41,21 @@ namespace XInputDotNetPure
                 float distanceFromCenter = (float)Math.Sqrt((long)valueX * (long)valueX + (long)valueY * (long)valueY);
                 float coefficient = ApplyDeadZone(distanceFromCenter, short.MaxValue, deadZoneSize);
                 coefficient = coefficient > 0.0f ? coefficient / distanceFromCenter : 0.0f;
-                return new GamePadThumbSticks.StickValue(
+                return new Axis(
                     Clamp(valueX * coefficient),
                     Clamp(valueY * coefficient)
                 );
             }
             else if (deadZoneMode == GamePadDeadZone.IndependentAxes)
             {
-                return new GamePadThumbSticks.StickValue(
+                return new Axis(
                     ApplyDeadZone(valueX, short.MaxValue, deadZoneSize),
                     ApplyDeadZone(valueY, short.MaxValue, deadZoneSize)
                 );
             }
             else
             {
-                return new GamePadThumbSticks.StickValue(
+                return new Axis(
                     ApplyDeadZone(valueX, short.MaxValue, 0.0f),
                     ApplyDeadZone(valueY, short.MaxValue, 0.0f)
                 );

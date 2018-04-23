@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
 
 namespace XInputDotNetPure
 {
@@ -13,188 +14,153 @@ namespace XInputDotNetPure
         public static extern void XInputGamePadSetState(uint playerIndex, float leftMotor, float rightMotor);
     }
 
-    public enum ButtonState
+    public enum ButtonCode
     {
-        Pressed,
-        Released
+        A,
+        B,
+        X,
+        Y,
+        ShoulderRight,
+        ShoulderLeft,
+        ThumbRight,
+        ThumbLeft,
+        Back,
+        Start,
+        Guide,
+        DpadUp,
+        DpadDown,
+        DpadRight,
+        DpadLeft
     }
 
-    public struct GamePadButtons
+    public enum AxisCode
     {
-        ButtonState start, back, leftStick, rightStick, leftShoulder, rightShoulder, guide, a, b, x, y;
+        StickLeft,
+        StickRight
+    }
 
-        internal GamePadButtons(ButtonState start, ButtonState back, ButtonState leftStick, ButtonState rightStick,
-                                ButtonState leftShoulder, ButtonState rightShoulder, ButtonState guide,
-                                ButtonState a, ButtonState b, ButtonState x, ButtonState y)
+    public enum TriggerCode
+    {
+        TriggerLeft,
+        TriggerRight
+    }
+
+    public struct Axis
+    {
+        float x;
+        float y;
+
+        public Axis(float x, float y)
         {
-            this.start = start;
-            this.back = back;
-            this.leftStick = leftStick;
-            this.rightStick = rightStick;
-            this.leftShoulder = leftShoulder;
-            this.rightShoulder = rightShoulder;
-            this.guide = guide;
-            this.a = a;
-            this.b = b;
             this.x = x;
             this.y = y;
         }
 
-        public ButtonState Start
+        void Value(float x, float y)
         {
-            get { return start; }
+
         }
 
-        public ButtonState Back
-        {
-            get { return back; }
+        public float X {
+            get {return x; }
         }
 
-        public ButtonState LeftStick
-        {
-            get { return leftStick; }
-        }
-
-        public ButtonState RightStick
-        {
-            get { return rightStick; }
-        }
-
-        public ButtonState LeftShoulder
-        {
-            get { return leftShoulder; }
-        }
-
-        public ButtonState RightShoulder
-        {
-            get { return rightShoulder; }
-        }
-
-        public ButtonState Guide
-        {
-            get { return guide; }
-        }
-
-        public ButtonState A
-        {
-            get { return a; }
-        }
-
-        public ButtonState B
-        {
-            get { return b; }
-        }
-
-        public ButtonState X
-        {
-            get { return x; }
-        }
-
-        public ButtonState Y
-        {
+        public float Y {
             get { return y; }
         }
     }
 
-    public struct GamePadDPad
+    public enum PlayerIndex
     {
-        ButtonState up, down, left, right;
-
-        internal GamePadDPad(ButtonState up, ButtonState down, ButtonState left, ButtonState right)
-        {
-            this.up = up;
-            this.down = down;
-            this.left = left;
-            this.right = right;
-        }
-
-        public ButtonState Up
-        {
-            get { return up; }
-        }
-
-        public ButtonState Down
-        {
-            get { return down; }
-        }
-
-        public ButtonState Left
-        {
-            get { return left; }
-        }
-
-        public ButtonState Right
-        {
-            get { return right; }
-        }
+        One = 0,
+        Two,
+        Three,
+        Four
     }
 
-    public struct GamePadThumbSticks
+    public enum GamePadDeadZone
     {
-        public struct StickValue
+        Circular,
+        IndependentAxes,
+        None
+    }
+
+    public class GamePadManager
+    {
+        //Later research if you can have more then 4 players on one machine
+
+        GamePadState[] currentStates;
+        GamePadState[] lastStates;
+        const int controllersMax = 4;
+
+        public GamePadManager()
         {
-            float x, y;
+            currentStates = new GamePadState[controllersMax];
+            lastStates = new GamePadState[controllersMax];
+        }
 
-            internal StickValue(float x, float y)
+        //Pole for all indexs
+        public void Pole()
+        {
+            for (int i = 0; i < controllersMax; ++i)
             {
-                this.x = x;
-                this.y = y;
-            }
-
-            public float X
-            {
-                get { return x; }
-            }
-
-            public float Y
-            {
-                get { return y; }
+                PlayerIndex testPlayerIndex = (PlayerIndex)i;
+                lastStates[i] = currentStates[i];
+                currentStates[i].Update(testPlayerIndex);
             }
         }
 
-        StickValue left, right;
-
-        internal GamePadThumbSticks(StickValue left, StickValue right)
+        //Pole for a specific player index
+        public void Pole(PlayerIndex playerIndex)
         {
-            this.left = left;
-            this.right = right;
+            int index = (int)playerIndex;
+            lastStates[index] = currentStates[index];
+            currentStates[index].Update(playerIndex);
         }
 
-        public StickValue Left
+        public bool IsControllerConnected(PlayerIndex playerIndex)
         {
-            get { return left; }
+            return currentStates[(int)playerIndex].IsConnected;
         }
 
-        public StickValue Right
+        public static void SetVibration(PlayerIndex playerIndex, float leftMotor, float rightMotor)
         {
-            get { return right; }
+            Imports.XInputGamePadSetState((uint)playerIndex, leftMotor, rightMotor);
+        }
+
+        public bool GetButton(PlayerIndex index, ButtonCode button)
+        {
+            return currentStates[(int)index].GetButton(button);
+        }
+
+        public bool GetButtonDown(PlayerIndex index, ButtonCode button)
+        {
+            return lastStates[(int)index].GetButton(button) == false && GetButton(index, button) == true;
+        }
+
+        public bool GetButtonUp(PlayerIndex index, ButtonCode button)
+        {
+            return lastStates[(int)index].GetButton(button) == true && GetButton(index, button) == false;
+        }
+
+        public Axis GetAxis(PlayerIndex index, AxisCode axis)
+        {
+            return currentStates[(int)index].GetAxis(axis);
+        }
+
+        public float GetTrigger(PlayerIndex index, TriggerCode trigger)
+        {
+            return currentStates[(int)index].GetTrigger(trigger);
         }
     }
 
-    public struct GamePadTriggers
+    internal struct GamePadState
     {
-        float left;
-        float right;
+        Dictionary<ButtonCode, bool> _buttons;
+        Dictionary<AxisCode, Axis> _axis;
+        Dictionary<TriggerCode, float> _triggers;
 
-        internal GamePadTriggers(float left, float right)
-        {
-            this.left = left;
-            this.right = right;
-        }
 
-        public float Left
-        {
-            get { return left; }
-        }
-
-        public float Right
-        {
-            get { return right; }
-        }
-    }
-
-    public struct GamePadState
-    {
         [StructLayout(LayoutKind.Sequential)]
         internal struct RawState
         {
@@ -214,12 +180,19 @@ namespace XInputDotNetPure
             }
         }
 
-        bool isConnected;
-        uint packetNumber;
-        GamePadButtons buttons;
-        GamePadDPad dPad;
-        GamePadThumbSticks thumbSticks;
-        GamePadTriggers triggers;
+        bool _isConnected;
+        uint _packetNumber;
+
+
+        public uint PacketNumber
+        {
+            get { return _packetNumber; }
+        }
+
+        public bool IsConnected
+        {
+            get { return _isConnected; }
+        }
 
         enum ButtonsConstants
         {
@@ -242,7 +215,7 @@ namespace XInputDotNetPure
 
         internal GamePadState(bool isConnected, RawState rawState, GamePadDeadZone deadZone)
         {
-            this.isConnected = isConnected;
+            this._isConnected = isConnected;
 
             if (!isConnected)
             {
@@ -256,100 +229,106 @@ namespace XInputDotNetPure
                 rawState.Gamepad.sThumbRY = 0;
             }
 
-            packetNumber = rawState.dwPacketNumber;
-            buttons = new GamePadButtons(
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Start) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Back) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.LeftThumb) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.RightThumb) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.LeftShoulder) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.RightShoulder) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Guide) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.A) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.B) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.X) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Y) != 0 ? ButtonState.Pressed : ButtonState.Released
-            );
-            dPad = new GamePadDPad(
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadUp) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadDown) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadLeft) != 0 ? ButtonState.Pressed : ButtonState.Released,
-                (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadRight) != 0 ? ButtonState.Pressed : ButtonState.Released
-            );
+            _packetNumber = rawState.dwPacketNumber;
 
-            thumbSticks = new GamePadThumbSticks(
-                Utils.ApplyLeftStickDeadZone(rawState.Gamepad.sThumbLX, rawState.Gamepad.sThumbLY, deadZone),
-                Utils.ApplyRightStickDeadZone(rawState.Gamepad.sThumbRX, rawState.Gamepad.sThumbRY, deadZone)
-            );
-            triggers = new GamePadTriggers(
-                Utils.ApplyTriggerDeadZone(rawState.Gamepad.bLeftTrigger, deadZone),
-                Utils.ApplyTriggerDeadZone(rawState.Gamepad.bRightTrigger, deadZone)
-            );
+            _buttons = new Dictionary<ButtonCode, bool>();
+            _buttons.Add(ButtonCode.Start, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Start) != 0 ? true : false);
+            _buttons.Add(ButtonCode.Back, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Back) != 0 ? true : false);
+            _buttons.Add(ButtonCode.ThumbLeft, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.LeftThumb) != 0 ? true : false);
+            _buttons.Add(ButtonCode.ThumbRight, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.RightThumb) != 0 ? true : false);
+            _buttons.Add(ButtonCode.ShoulderLeft, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.LeftShoulder) != 0 ? true : false);
+            _buttons.Add(ButtonCode.ShoulderRight, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.RightShoulder) != 0 ? true : false);
+            _buttons.Add(ButtonCode.Guide, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Guide) != 0 ? true : false);
+
+            _buttons.Add(ButtonCode.A, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.A) != 0 ? true : false);
+            _buttons.Add(ButtonCode.B, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.B) != 0 ? true : false);
+            _buttons.Add(ButtonCode.X, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.X) != 0 ? true : false);
+            _buttons.Add(ButtonCode.Y, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Y) != 0 ? true : false);
+
+
+            _buttons.Add(ButtonCode.DpadUp, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadUp) != 0 ? true : false);
+            _buttons.Add(ButtonCode.DpadDown, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadDown) != 0 ? true : false);
+            _buttons.Add(ButtonCode.DpadLeft, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadLeft) != 0 ? true : false);
+            _buttons.Add(ButtonCode.DpadRight, (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadRight) != 0 ? true : false);
+
+            _axis = new Dictionary<AxisCode, Axis>();
+            _axis.Add(AxisCode.StickLeft, Utils.ApplyLeftStickDeadZone(rawState.Gamepad.sThumbLX, rawState.Gamepad.sThumbLY, deadZone));
+            _axis.Add(AxisCode.StickRight, Utils.ApplyRightStickDeadZone(rawState.Gamepad.sThumbRX, rawState.Gamepad.sThumbRY, deadZone));
+
+            _triggers = new Dictionary<TriggerCode, float>();
+            _triggers.Add(TriggerCode.TriggerLeft, Utils.ApplyTriggerDeadZone(rawState.Gamepad.bLeftTrigger, deadZone));
+            _triggers.Add(TriggerCode.TriggerRight, Utils.ApplyTriggerDeadZone(rawState.Gamepad.bRightTrigger, deadZone));
         }
 
-        public uint PacketNumber
+        public void Update(PlayerIndex index)
         {
-            get { return packetNumber; }
+            Update(index, GamePadDeadZone.IndependentAxes);
         }
 
-        public bool IsConnected
+        public void Update(PlayerIndex index, GamePadDeadZone deadZone)
         {
-            get { return isConnected; }
+            RawState state;
+            uint result = Imports.XInputGamePadGetState((uint)index, out state);
+            UpdateState(result == Utils.Success, state, deadZone);
         }
 
-        public GamePadButtons Buttons
+        void UpdateState(bool isConnected, RawState rawState, GamePadDeadZone deadZone)
         {
-            get { return buttons; }
+            this._isConnected = isConnected;
+
+            if (!isConnected)
+            {
+                rawState.dwPacketNumber = 0;
+                rawState.Gamepad.wButtons = 0;
+                rawState.Gamepad.bLeftTrigger = 0;
+                rawState.Gamepad.bRightTrigger = 0;
+                rawState.Gamepad.sThumbLX = 0;
+                rawState.Gamepad.sThumbLY = 0;
+                rawState.Gamepad.sThumbRX = 0;
+                rawState.Gamepad.sThumbRY = 0;
+            }
+
+            _packetNumber = rawState.dwPacketNumber;
+
+            _buttons[ButtonCode.Start] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Start) != 0 ? true : false;
+            _buttons[ButtonCode.Back] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Back) != 0 ? true : false;
+            _buttons[ButtonCode.ThumbLeft] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.LeftThumb) != 0 ? true : false;
+            _buttons[ButtonCode.ThumbRight] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.RightThumb) != 0 ? true : false;
+            _buttons[ButtonCode.ShoulderLeft] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.LeftShoulder) != 0 ? true : false;
+            _buttons[ButtonCode.ShoulderRight] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.RightShoulder) != 0 ? true : false;
+            _buttons[ButtonCode.Guide] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Guide) != 0 ? true : false;
+
+            _buttons[ButtonCode.A] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.A) != 0 ? true : false;
+            _buttons[ButtonCode.B] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.B) != 0 ? true : false;
+            _buttons[ButtonCode.X] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.X) != 0 ? true : false;
+            _buttons[ButtonCode.Y] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.Y) != 0 ? true : false;
+
+
+            _buttons[ButtonCode.DpadUp] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadUp) != 0 ? true : false;
+            _buttons[ButtonCode.DpadDown] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadDown) != 0 ? true : false;
+            _buttons[ButtonCode.DpadLeft] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadLeft) != 0 ? true : false;
+            _buttons[ButtonCode.DpadRight] = (rawState.Gamepad.wButtons & (uint)ButtonsConstants.DPadRight) != 0 ? true : false;
+
+            _axis[AxisCode.StickLeft] = Utils.ApplyLeftStickDeadZone(rawState.Gamepad.sThumbLX, rawState.Gamepad.sThumbLY, deadZone);
+            _axis[AxisCode.StickRight] = Utils.ApplyRightStickDeadZone(rawState.Gamepad.sThumbRX, rawState.Gamepad.sThumbRY, deadZone);
+
+            _triggers[TriggerCode.TriggerLeft] = Utils.ApplyTriggerDeadZone(rawState.Gamepad.bLeftTrigger, deadZone);
+            _triggers[TriggerCode.TriggerRight] = Utils.ApplyTriggerDeadZone(rawState.Gamepad.bRightTrigger, deadZone);
         }
 
-        public GamePadDPad DPad
+        public bool GetButton(ButtonCode button)
         {
-            get { return dPad; }
+            return _buttons[button];
         }
 
-        public GamePadTriggers Triggers
+        public Axis GetAxis(AxisCode axis)
         {
-            get { return triggers; }
+            return _axis[axis];
         }
 
-        public GamePadThumbSticks ThumbSticks
+        public float GetTrigger(TriggerCode trigger)
         {
-            get { return thumbSticks; }
-        }
-    }
-
-    public enum PlayerIndex
-    {
-        One = 0,
-        Two,
-        Three,
-        Four
-    }
-
-    public enum GamePadDeadZone
-    {
-        Circular,
-        IndependentAxes,
-        None
-    }
-
-    public class GamePad
-    {
-        public static GamePadState GetState(PlayerIndex playerIndex)
-        {
-            return GetState(playerIndex, GamePadDeadZone.IndependentAxes);
-        }
-
-        public static GamePadState GetState(PlayerIndex playerIndex, GamePadDeadZone deadZone)
-        {
-            GamePadState.RawState state;
-            uint result = Imports.XInputGamePadGetState((uint)playerIndex, out state);
-            return new GamePadState(result == Utils.Success, state, deadZone);
-        }
-
-        public static void SetVibration(PlayerIndex playerIndex, float leftMotor, float rightMotor)
-        {
-            Imports.XInputGamePadSetState((uint)playerIndex, leftMotor, rightMotor);
+            return _triggers[trigger];
         }
     }
 }
